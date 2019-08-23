@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
-from rest_framework import generics, permissions, renderers
-from rest_framework.decorators import api_view
+from rest_framework import permissions, viewsets
+from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 from rest_framework.reverse import reverse
 from snippets.models import Snippet
@@ -16,41 +16,30 @@ def api_root(requst, format=None):
     })
 
 
-class SnippetList(generics.ListCreateAPIView):
+class SnippetViewSet(viewsets.ModelViewSet):
     """
-    List all snippets, or create a new snippet.
+    This viewset automatically provides `list`, `create`, `retrive`,
+    `update`, and `destroy` actions.
+
+    Additionally we alsos provide an extra `hightlight` action.
     """
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [
+        permissions.IsAuthenticatedOrReadOnly,
+        IsOwnerOrReadOnly,
+    ]
     queryset = Snippet.objects.all()
     serializer_class = SnippetSerializer
+
+    @action
+    def hightlight(self, request, *args, **kwargs):
+        snippet = self.get_object()
+        return Response(snippet.highlighted)
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
 
-class SnippetHighlight(generics.GenericAPIView):
-    queryset = Snippet.objects.all()
-    renderer_classes = [renderers.StaticHTMLRenderer]
-
-    def get(self, request, *args, **kwargs):
-        snippet = self.get_object()
-        return Response(snippet.highlighted)
-
-
-class SnippetDetail(generics.RetrieveUpdateDestroyAPIView):
-    """
-    Retrieve, update, or delete a snippet instance.
-    """
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly]
-    queryset = Snippet.objects.all()
-    serializer_class = SnippetSerializer
-
-
-class UserList(generics.ListAPIView):
+class UserViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
-
-class UserDetail(generics.RetrieveAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
